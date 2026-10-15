@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autoclave EtO — Panel de Demostración</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0f1318;
+    --panel: #161c23;
+    --panel-2: #1c2530;
+    --border: #2a3542;
+    --text: #e7edf2;
+    --muted: #7d8b99;
+    --cyan: #2fd8c9;
+    --cyan-dim: #1a4d49;
+    --amber: #e8a13d;
+    --amber-dim: #4d3c1a;
+    --red: #ff5c5c;
+    --red-dim: #4a1f1f;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--sans); min-height:100vh; padding:28px;
+  }
+  .wrap{max-width:1200px; margin:0 auto;}
+  header{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:22px;
+    flex-wrap:wrap; gap:14px;
+  }
+  .title-block .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.14em; color:var(--cyan);
+    text-transform:uppercase; margin-bottom:6px;
+  }
+  h1{font-size:24px; margin:0; font-weight:600; letter-spacing:-.01em;}
+  .subtitle{color:var(--muted); font-size:13px; margin-top:4px;}
+  .status-pill{
+    font-family:var(--mono); font-size:12px; padding:7px 14px; border-radius:20px;
+    border:1px solid var(--border); background:var(--panel-2); color:var(--muted);
+    letter-spacing:.06em; text-transform:uppercase; transition:.3s;
+  }
+  .status-pill.running{border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 12px -2px var(--cyan-dim) inset;}
+  .status-pill.done{border-color:var(--amber); color:var(--amber);}
+  .status-pill.waiting{border-color:var(--red); color:var(--red); animation:blinkbg 1.2s infinite;}
+  @keyframes blinkbg{50%{opacity:.55;}}
+
+  .grid{display:grid; grid-template-columns:1.5fr 1fr; gap:20px;}
+  @media(max-width:920px){.grid{grid-template-columns:1fr;}}
+
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:18px 20px;
+  }
+  .panel h2{
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--muted); margin:0 0 14px 0; font-weight:500;
+  }
+
+  /* Diagram panel */
+  #diagram-panel svg{width:100%; height:auto; display:block;}
+  .pipe{fill:none; stroke:var(--border); stroke-width:5; stroke-linecap:round;}
+  .pipe.active{stroke:var(--cyan); stroke-dasharray:9 7; animation:flow .5s linear infinite; filter:drop-shadow(0 0 5px var(--cyan-dim));}
+  .pipe.hazard.active{stroke:var(--amber); filter:drop-shadow(0 0 5px var(--amber-dim));}
+  @keyframes flow{to{stroke-dashoffset:-16;}}
+  .vessel-body{fill:var(--panel-2); stroke:var(--border); stroke-width:2; transition:stroke .4s;}
+  .vessel-body.heating{stroke:var(--red); filter:drop-shadow(0 0 8px var(--red-dim));}
+  .vessel-body.stable{stroke:var(--cyan);}
+  .heater{stroke:var(--border); stroke-width:3; fill:none; transition:stroke .3s, filter .3s;}
+  .heater.active{stroke:var(--red); filter:drop-shadow(0 0 6px var(--red-dim));}
+  .comp{fill:var(--panel-2); stroke:var(--border); stroke-width:2; transition:stroke .3s, filter .3s;}
+  .comp.active{stroke:var(--cyan); filter:drop-shadow(0 0 6px var(--cyan-dim));}
+  .comp.hazard{stroke:var(--border);}
+  .comp.hazard.active{stroke:var(--amber); filter:drop-shadow(0 0 6px var(--amber-dim));}
+  .rod{stroke:var(--muted); stroke-width:4; stroke-linecap:round;}
+  .rod.pierced{stroke:var(--amber);}
+  .label-sm{font-family:var(--mono); font-size:10px; fill:var(--muted); letter-spacing:.02em;}
+  .label-md{font-family:var(--mono); font-size:11px; fill:var(--text);}
+  .gauge-ring{fill:var(--panel-2); stroke:var(--border); stroke-width:2;}
+  .gauge-needle{stroke:var(--cyan); stroke-width:2.5; stroke-linecap:round; transform-origin:490px 402px; transition:transform .4s ease-out;}
+
+  /* Readouts */
+  .readouts{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;}
+  .readout{
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px 14px;
+  }
+  .readout .rlabel{font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.08em; text-transform:uppercase;}
+  .readout .rvalue{font-family:var(--mono); font-size:26px; font-weight:600; margin-top:4px; color:var(--cyan);}
+  .readout .rvalue.amber{color:var(--amber);}
+  .readout .rband{font-family:var(--mono); font-size:10px; color:var(--muted); margin-top:2px;}
+
+  .step-now{
+    background:var(--panel-2); border:1px solid var(--cyan); border-radius:8px; padding:14px 16px; margin-bottom:16px;
+  }
+  .step-now .rlabel{font-family:var(--mono); font-size:10px; color:var(--cyan); letter-spacing:.08em; text-transform:uppercase;}
+  .step-now .stext{font-size:15px; font-weight:600; margin-top:5px;}
+  .step-now .stimer{font-family:var(--mono); font-size:13px; color:var(--muted); margin-top:4px;}
+
+  .purge-dots{display:flex; gap:6px; margin-top:8px;}
+  .purge-dot{width:18px; height:6px; border-radius:3px; background:var(--border);}
+  .purge-dot.done{background:var(--cyan);}
+  .purge-dot.current{background:var(--amber); animation:blinkbg 1s infinite;}
+
+  .timeline{list-style:none; margin:0 0 16px 0; padding:0;}
+  .timeline li{
+    display:flex; align-items:center; gap:10px; padding:8px 0; font-size:13px;
+    color:var(--muted); border-bottom:1px solid var(--border);
+  }
+  .timeline li:last-child{border-bottom:none;}
+  .timeline .dot{width:8px; height:8px; border-radius:50%; background:var(--border); flex-shrink:0;}
+  .timeline li.done{color:var(--text);}
+  .timeline li.done .dot{background:var(--cyan);}
+  .timeline li.active{color:var(--text); font-weight:600;}
+  .timeline li.active .dot{background:var(--amber); box-shadow:0 0 0 4px var(--amber-dim);}
+
+  .controls{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px;}
+  button{
+    font-family:var(--sans); font-weight:600; font-size:13px; padding:10px 18px;
+    border-radius:7px; border:1px solid var(--border); background:var(--panel-2); color:var(--text);
+    cursor:pointer; transition:.2s;
+  }
+  button:hover:not(:disabled){border-color:var(--cyan); color:var(--cyan);}
+  button:disabled{opacity:.35; cursor:not-allowed;}
+  button.primary{background:var(--cyan); color:#0a1614; border-color:var(--cyan);}
+  button.primary:hover:not(:disabled){filter:brightness(1.1); color:#0a1614;}
+  button.trigger{background:var(--red); color:#1a0a0a; border-color:var(--red); animation:blinkbg 1s infinite;}
+  button.trigger:hover:not(:disabled){filter:brightness(1.1); color:#1a0a0a;}
+
+  #log{
+    font-family:var(--mono); font-size:12px; color:var(--muted); background:var(--panel-2);
+    border:1px solid var(--border); border-radius:8px; padding:10px 12px; height:150px;
+    overflow-y:auto; margin-top:18px; line-height:1.7;
+  }
+  #log .t{color:var(--cyan); margin-right:8px;}
+  #log .line{opacity:0; animation:fadein .3s forwards;}
+  @keyframes fadein{to{opacity:1;}}
+
+  footer{margin-top:20px; text-align:center; color:var(--muted); font-size:11px; font-family:var(--mono);}
+
+  /* Historial */
+  .hist-panel{margin-top:20px;}
+  .hist-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;}
+  .hist-head h2{margin:0;}
+  .hist-stats{font-family:var(--mono); font-size:12px; color:var(--muted);}
+  .hist-stats b{color:var(--cyan); font-size:18px; margin:0 4px;}
+  .hist-scroll{max-height:340px; overflow:auto; border:1px solid var(--border); border-radius:8px;}
+  table{width:100%; border-collapse:collapse; font-family:var(--mono); font-size:12px;}
+  th,td{padding:9px 12px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap;}
+  th{position:sticky; top:0; background:var(--panel-2); color:var(--muted); font-weight:500; letter-spacing:.08em; text-transform:uppercase; font-size:10px;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--panel-2);}
+  td .tag{color:var(--amber); font-size:10px; margin-left:6px;}
+  td button, .hist-head button{padding:5px 10px; font-size:11px;}
+  .empty{padding:18px; text-align:center; color:var(--muted); font-family:var(--mono); font-size:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <div class="eyebrow">SCADA · Panel de demostración</div>
+      <h1>Autoclave de esterilización — Óxido de Etileno</h1>
+      <div class="subtitle">Simulación del ciclo completo de esterilización a velocidad acelerada</div>
+    </div>
+    <div class="status-pill" id="status-pill">EN ESPERA</div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: diagram -->
+    <div class="panel" id="diagram-panel">
+      <h2>Diagrama de proceso</h2>
+      <svg viewBox="0 0 800 490" xmlns="http://www.w3.org/2000/svg">
+        <!-- pipe: chamber -> pump -->
+        <path id="pipe-vac" class="pipe" d="M 380 322 L 380 378"></path>
+        <!-- pipe: chamber -> ampoule -->
+        <path id="pipe-eto" class="pipe hazard" d="M 552 172 L 552 140"></path>
+        <!-- pipe: chamber -> air valve -> vent -->
+        <path id="pipe-air" class="pipe" d="M 590 235 L 650 235"></path>
+        <path id="pipe-air2" class="pipe" d="M 690 235 L 725 235"></path>
+
+        <!-- chamber -->
+        <rect id="vessel" class="vessel-body" x="170" y="170" width="420" height="150" rx="22"></rect>
+        <path class="vessel-body" d="M 170 182 a 6 63 0 0 0 0 126" fill="var(--panel-2)"></path>
+        <text x="380" y="243" text-anchor="middle" class="label-md" font-size="16" font-weight="600">CÁMARA</text>
+        <text x="380" y="264" text-anchor="middle" class="label-sm">Autoclave EtO</text>
+
+        <!-- heater zigzag under vessel -->
+        <path id="heater" class="heater" d="M 190 322 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10 l 14 10 l 14 -10"></path>
+        <text x="500" y="350" text-anchor="middle" class="label-sm">Resistencia calefactora</text>
+
+        <!-- pump -->
+        <circle id="pump" class="comp" cx="380" cy="402" r="24"></circle>
+        <path d="M 371 402 L 389 402 L 380 388 Z" fill="var(--muted)" id="pump-arrow"></path>
+        <text x="380" y="440" text-anchor="middle" class="label-sm">Bomba de vacío</text>
+
+        <!-- vacuum gauge -->
+        <circle class="gauge-ring" cx="490" cy="402" r="26"></circle>
+        <line id="gauge-needle" class="gauge-needle" x1="490" y1="402" x2="490" y2="382"></line>
+        <circle cx="490" cy="402" r="3" fill="var(--muted)"></circle>
+        <text x="490" y="442" text-anchor="middle" class="label-sm">Vacuostato</text>
+
+        <!-- ampoule / vástago (mismo largo: 45) -->
+        <rect id="ampoule" class="comp hazard" x="540" y="95" width="24" height="45" rx="4"></rect>
+        <line id="rod" class="rod" x1="552" y1="50" x2="552" y2="95"></line>
+        <text x="552" y="40" text-anchor="middle" class="label-sm">Vástago</text>
+        <text x="574" y="114" class="label-sm">Ampolla</text>
+        <text x="574" y="126" class="label-sm">óxido de etileno</text>
+
+        <!-- air inlet valve -->
+        <rect id="valve" class="comp" x="650" y="220" width="40" height="30" rx="4"></rect>
+        <path d="M 655 220 l 0 -10 l 30 0 l 0 10" fill="none" stroke="var(--border)" stroke-width="2" id="valve-coil"></path>
+        <text x="670" y="267" text-anchor="middle" class="label-sm">Electroválvula</text>
+        <text x="670" y="279" text-anchor="middle" class="label-sm">de aire</text>
+        <path d="M 725 225 l 12 10 l -12 10 M 725 235 l 20 0" fill="none" stroke="var(--muted)" stroke-width="2"></path>
+        <text x="745" y="260" text-anchor="middle" class="label-sm">Aire</text>
+        <text x="745" y="272" text-anchor="middle" class="label-sm">filtrado</text>
+
+        <!-- vent -->
+        <path d="M 380 426 L 380 455 M 368 455 L 392 455" stroke="var(--muted)" stroke-width="2"></path>
+        <text x="380" y="475" text-anchor="middle" class="label-sm">Extracción</text>
+      </svg>
+    </div>
+
+    <!-- RIGHT: controls & readouts -->
+    <div>
+      <div class="panel">
+        <h2>Lecturas</h2>
+        <div class="readouts">
+          <div class="readout">
+            <div class="rlabel">Temperatura</div>
+            <div class="rvalue" id="temp-value">22.0°C</div>
+            <div class="rband">Consigna 36.0°C</div>
+          </div>
+          <div class="readout">
+            <div class="rlabel">Vacío</div>
+            <div class="rvalue amber" id="vac-value">0 cmHg</div>
+            <div class="rband">Consigna 40 cmHg</div>
+          </div>
+        </div>
+
+        <div class="step-now">
+          <div class="rlabel">Paso actual</div>
+          <div class="stext" id="step-text">Listo para iniciar</div>
+          <div class="stimer" id="step-timer">—</div>
+          <div class="purge-dots" id="purge-dots"></div>
+        </div>
+
+        <ul class="timeline" id="timeline"></ul>
+
+        <div class="controls">
+          <button class="primary" id="btn-start">Iniciar demo</button>
+          <button class="trigger" id="btn-trigger" disabled>Disparar ciclo</button>
+          <button id="btn-reset">Reiniciar</button>
+          <button id="btn-download" disabled>⬇ Descargar informe</button>
+        </div>
+
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel hist-panel">
+    <div class="hist-head">
+      <h2>Historial de procesos — últimos 30 días</h2>
+      <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+        <div class="hist-stats">Procesos realizados:<b id="hist-count">0</b></div>
+        <button id="btn-clear">Borrar historial</button>
+      </div>
+    </div>
+    <div class="hist-scroll">
+      <table>
+        <thead><tr><th>N°</th><th>Inicio (fecha y hora)</th><th>Fin (fecha y hora)</th><th>Duración</th><th>Informe</th></tr></thead>
+        <tbody id="hist-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>Tiempo de proceso real equivalente: <span id="sim-clock">00:00:00</span> — demostración a velocidad acelerada</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+const TIMELINE_STEPS = [
+  {key:'heat',   label:'Calentamiento a 36°C'},
+  {key:'wait',   label:'Espera de disparo'},
+  {key:'vacuum1',label:'Vacío inicial (40 cmHg)'},
+  {key:'pierce', label:'Perforación de ampolla'},
+  {key:'hold',   label:'Impregnación (2:00:00)'},
+  {key:'purge',  label:'Purgado (4 repeticiones)'},
+  {key:'done',   label:'Fin de ciclo'},
+];
+
+function renderTimeline(activeKey, doneKeys){
+  const ul = $('timeline');
+  ul.innerHTML = '';
+  TIMELINE_STEPS.forEach(s=>{
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="dot"></span><span>${s.label}</span>`;
+    if(doneKeys.includes(s.key)) li.classList.add('done');
+    if(s.key===activeKey) li.classList.add('active');
+    ul.appendChild(li);
+  });
+}
+
+function renderPurgeDots(current, done){
+  const el = $('purge-dots');
+  el.innerHTML = '';
+  for(let i=1;i<=4;i++){
+    const d = document.createElement('div');
+    d.className = 'purge-dot';
+    if(i<=done) d.className += ' done';
+    if(i===current) d.className += ' current';
+    el.appendChild(d);
+  }
+}
+
+function logLine(text){
+  currentLog.push({t:simClockSeconds, text});
+  const log = $('log');
+  const div = document.createElement('div');
+  div.className = 'line';
+  div.innerHTML = `<span class="t">[${formatTime(simClockSeconds)}]</span>${text}`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function formatTime(totalSeconds){
+  totalSeconds = Math.max(0, Math.round(totalSeconds));
+  const h = Math.floor(totalSeconds/3600);
+  const m = Math.floor((totalSeconds%3600)/60);
+  const s = totalSeconds%60;
+  if(h>0) return [h,m,s].map(n=>String(n).padStart(2,'0')).join(':');
+  return [m,s].map(n=>String(n).padStart(2,'0')).join(':');
+}
+
+let simClockSeconds = 0;
+function bumpSimClock(seconds){
+  simClockSeconds += seconds;
+  $('sim-clock').textContent = formatTime(simClockSeconds);
+}
+
+function setStatus(mode, text){
+  const pill = $('status-pill');
+  pill.className = 'status-pill ' + mode;
+  pill.textContent = text;
+}
+
+function setTemp(v){ $('temp-value').textContent = v.toFixed(1) + '°C'; }
+function setVac(v){ $('vac-value').textContent = Math.round(v) + ' cmHg'; }
+function setStepText(text, timer){
+  $('step-text').textContent = text;
+  $('step-timer').textContent = timer || '—';
+}
+
+function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+function animate(realMs, onTick){
+  return new Promise(resolve=>{
+    const start = performance.now();
+    function frame(now){
+      const t = Math.min((now-start)/realMs, 1);
+      onTick(t);
+      if(t<1) requestAnimationFrame(frame); else resolve();
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+function setGaugeNeedle(vac){
+  // 0 cmHg -> -60deg, 40 cmHg -> 120deg (sweep)
+  const angle = -60 + (vac/40)*180;
+  $('gauge-needle').style.transform = `rotate(${angle}deg)`;
+}
+
+function setActive(id, on, cls){
+  const el = $(id);
+  if(!el) return;
+  el.classList.toggle(cls || 'active', on);
+}
+
+let triggerResolve = null;
+$('btn-trigger').addEventListener('click', ()=>{
+  if(triggerResolve){ triggerResolve(); triggerResolve = null; }
+  $('btn-trigger').disabled = true;
+});
+
+async function runCycle(){
+  $('btn-start').disabled = true;
+  $('btn-reset').disabled = true;
+  simClockSeconds = 0;
+  $('sim-clock').textContent = '00:00:00';
+  $('log').innerHTML = '';
+  currentStart = Date.now(); currentLog = [];
+  $('btn-download').disabled = true;
+  setStatus('running', 'EN PROCESO');
+  logLine('Inicio de ciclo de esterilización.');
+
+  // 1. Heating
+  renderTimeline('heat', []);
+  setStepText('Calentamiento a 36°C');
+  setActive('vessel', true, 'heating');
+  setActive('heater', true);
+  await animate(6000, t=>{
+    const temp = 22 + t*14;
+    setTemp(temp);
+    setStepText('Calentamiento a 36°C', formatTime(180*(1-t)) + ' restantes (aprox.)');
+  });
+  setTemp(36.0);
+  setActive('vessel', false, 'heating');
+  setActive('vessel', true, 'stable');
+  bumpSimClock(180);
+  logLine('Temperatura estabilizada en 36.0°C.');
+
+  // 2. Wait trigger
+  renderTimeline('wait', ['heat']);
+  setStepText('Esperando botón de disparo', 'Presioná "Disparar ciclo"');
+  $('btn-trigger').disabled = false;
+  logLine('Sistema a la espera del disparador manual.');
+  await new Promise(r=> triggerResolve = r);
+  logLine('Disparador activado. Comienza el vacío inicial.');
+
+  // maintain temp with small oscillation from here on
+  let tempOsc = setInterval(()=>{
+    const v = 36 + (Math.random()-0.5)*0.4;
+    setTemp(v);
+  }, 700);
+
+  // 3. Vacuum initial
+  renderTimeline('vacuum1', ['heat','wait']);
+  setActive('pipe-vac', true);
+  setActive('pump', true);
+  await animate(5000, t=>{
+    setVac(t*40);
+    setGaugeNeedle(t*40);
+    setStepText('Vacío inicial → 40 cmHg', formatTime(300*(1-t)) + ' restantes (aprox.)');
+  });
+  bumpSimClock(300);
+  setActive('pipe-vac', false);
+  setActive('pump', false);
+  logLine('Vacío alcanzado: 40 cmHg. Vacuostato conmuta.');
+
+  // 4. Pierce ampoule
+  renderTimeline('pierce', ['heat','wait','vacuum1']);
+  setStepText('Perforando ampolla de óxido de etileno');
+  setActive('pipe-eto', true);
+  await animate(1200, t=>{
+    $('rod').style.transform = `translateY(${t*30}px)`;
+  });
+  setActive('rod', true, 'pierced');
+  bumpSimClock(5);
+  logLine('Ampolla perforada. Óxido de etileno liberado a la cámara.');
+  await wait(400);
+  setActive('pipe-eto', false);
+
+  // 5. Hold / impregnation
+  renderTimeline('hold', ['heat','wait','vacuum1','pierce']);
+  await animate(15000, t=>{
+    const remaining = 7200*(1-t);
+    setStepText('Impregnación en curso', formatTime(remaining) + ' restantes');
+    bumpSimClockTick(t, 7200);
+  });
+  logLine('Tiempo de impregnación completado (2:00:00).');
+
+  // 6. Purge cycles
+  renderTimeline('purge', ['heat','wait','vacuum1','pierce','hold']);
+  // initial 5 min vacuum
+  setActive('pipe-vac', true); setActive('pump', true);
+  renderPurgeDots(0, 0);
+  await animate(4000, t=>{
+    setVac(40 - t*40 < 0 ? 0 : 40); // stays high, already vacuum from hold
+    setGaugeNeedle(40);
+    setStepText('Purgado — vacío previo (5:00)', formatTime(300*(1-t)) + ' restantes');
+  });
+  bumpSimClock(300);
+  setActive('pipe-vac', false); setActive('pump', false);
+  logLine('Vacío de purgado previo completado.');
+
+  for(let i=1;i<=4;i++){
+    renderPurgeDots(i, i-1);
+    // air inlet pulse
+    setStepText(`Purgado ${i}/4 — ingreso de aire`, 'Electroválvula abierta');
+    setActive('pipe-air', true); setActive('pipe-air2', true); setActive('valve', true, 'hazard');
+    await animate(1500, t=>{
+      setVac(40 - t*40);
+      setGaugeNeedle(40 - t*40);
+    });
+    bumpSimClock(15);
+    setActive('pipe-air', false); setActive('pipe-air2', false); setActive('valve', false, 'hazard');
+    logLine(`Purgado ${i}/4: electroválvula de aire cerrada.`);
+
+    // vacuum again
+    setActive('pipe-vac', true); setActive('pump', true);
+    await animate(4000, t=>{
+      setVac(t*40);
+      setGaugeNeedle(t*40);
+      setStepText(`Purgado ${i}/4 — vacío (5:00)`, formatTime(300*(1-t)) + ' restantes');
+    });
+    bumpSimClock(300);
+    setActive('pipe-vac', false); setActive('pump', false);
+    renderPurgeDots(i, i);
+    logLine(`Purgado ${i}/4: vacío completado.`);
+  }
+
+  // 7. Done
+  clearInterval(tempOsc);
+  renderTimeline('done', ['heat','wait','vacuum1','pierce','hold','purge']);
+  setActive('vessel', false, 'stable');
+  setStepText('Ciclo finalizado');
+  setVac(0); setGaugeNeedle(0);
+  setStatus('done', 'CICLO FINALIZADO');
+  logLine('Ciclo de esterilización completo. Cámara lista para apertura.');
+  // Registrar proceso: inicio real + duración equivalente del proceso real
+  lastEntry = {id:currentStart, start:currentStart, end:currentStart + Math.round(simClockSeconds)*1000,
+               dur:Math.round(simClockSeconds), log:currentLog.slice()};
+  procHistory.push(lastEntry); saveHistory(); renderHistory();
+  $('btn-download').disabled = false;
+  $('btn-reset').disabled = false;
+}
+
+// helper to bump sim clock proportionally to animation progress
+let lastHoldSeconds = 0;
+function bumpSimClockTick(t, totalSeconds){
+  const target = t*totalSeconds;
+  const delta = target - lastHoldSeconds;
+  lastHoldSeconds = target;
+  bumpSimClock(delta);
+  if(t>=1) lastHoldSeconds = 0;
+}
+
+function resetAll(){
+  simClockSeconds = 0;
+  $('sim-clock').textContent = '00:00:00';
+  $('log').innerHTML = '';
+  setTemp(22.0); setVac(0); setGaugeNeedle(0);
+  setStepText('Listo para iniciar', '—');
+  renderPurgeDots(0,0);
+  renderTimeline(null, []);
+  setStatus('', 'EN ESPERA');
+  ['vessel'].forEach(id=>{setActive(id,false,'heating'); setActive(id,false,'stable');});
+  ['pipe-vac','pipe-eto','pipe-air','pipe-air2','pump','valve','rod'].forEach(id=>setActive(id,false));
+  setActive('rod', false, 'pierced');
+  $('rod').style.transform = '';
+  $('btn-download').disabled = true;
+  $('btn-start').disabled = false;
+  $('btn-trigger').disabled = true;
+  $('btn-reset').disabled = true;
+}
+
+// ---------- Historial e informes ----------
+const HIST_KEY = 'autoclave_hist_v1';
+let currentLog = [], currentStart = 0, lastEntry = null;
+const pad = n => String(n).padStart(2,'0');
+function fmtDT(ms){
+  const d = new Date(ms);
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+function fmtFile(ms){
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
+}
+function fmtDur(s){ return `${Math.floor(s/3600)}h ${pad(Math.floor(s%3600/60))}m ${pad(s%60)}s`; }
+
+const STD_LOG = [[0,'Inicio de ciclo de esterilización.'],[180,'Temperatura estabilizada en 36.0°C.'],
+  [480,'Vacío alcanzado: 40 cmHg. Vacuostato conmuta.'],[485,'Ampolla perforada. Óxido de etileno liberado a la cámara.'],
+  [7685,'Tiempo de impregnación completado (2:00:00).'],[7985,'Vacío de purgado previo completado.'],
+  [9245,'Ciclo de esterilización completo. Cámara lista para apertura.']];
+
+function seedHistory(){
+  // Procesos de ejemplo para mostrar la tabla (marcados como "ejemplo")
+  const sample = [[1,9,12],[2,14,5],[4,8,40],[5,10,22],[8,13,15],[9,9,3],[12,15,30],[15,11,48],[18,8,10],[21,14,25],[24,10,5],[27,9,35]];
+  return sample.map(([d,h,m],i)=>{
+    const t = new Date(); t.setDate(t.getDate()-d); t.setHours(h,m,(i*17)%60,0);
+    const dur = 9245 + (i*37)%90;
+    return {id:t.getTime(), start:t.getTime(), end:t.getTime()+dur*1000, dur, demo:true,
+            log:STD_LOG.map(([x,text])=>({t:x,text}))};
+  });
+}
+function loadHistory(){
+  try{ const r = localStorage.getItem(HIST_KEY); if(r) return JSON.parse(r); }catch(e){}
+  return seedHistory();
+}
+function saveHistory(){ try{ localStorage.setItem(HIST_KEY, JSON.stringify(procHistory)); }catch(e){} }
+let procHistory = loadHistory();
+
+function renderHistory(){
+  const cutoff = Date.now() - 30*86400000;
+  const rows = procHistory.filter(h=>h.start>=cutoff).sort((a,b)=>b.start-a.start);
+  $('hist-count').textContent = rows.length;
+  const body = $('hist-body');
+  if(!rows.length){ body.innerHTML = '<tr><td colspan="5" class="empty">Sin procesos en los últimos 30 días</td></tr>'; return; }
+  body.innerHTML = rows.map((h,i)=>`<tr>
+    <td>${rows.length-i}${h.demo?'<span class="tag">ejemplo</span>':''}</td>
+    <td>${fmtDT(h.start)}</td><td>${fmtDT(h.end)}</td><td>${fmtDur(h.dur)}</td>
+    <td><button data-id="${h.id}">⬇ Descargar</button></td></tr>`).join('');
+}
+
+function buildReport(e){
+  const L = ['INFORME DE PROCESO — AUTOCLAVE DE ESTERILIZACIÓN (ÓXIDO DE ETILENO)','='.repeat(64),
+    `Fecha y hora de inicio : ${fmtDT(e.start)}`,
+    `Fecha y hora de fin    : ${fmtDT(e.end)}`,
+    `Duración total         : ${fmtDur(e.dur)}`,
+    'Temperatura de consigna: 36.0°C','Vacío de consigna      : 40 cmHg',
+    'Impregnación           : 2:00:00','Purgados               : 4 repeticiones',
+    'Resultado              : CICLO COMPLETADO','','REGISTRO DE EVENTOS','-'.repeat(64)];
+  e.log.forEach(x=>L.push(`[${formatTime(x.t)}] ${x.text}`));
+  L.push('','Informe generado: '+fmtDT(Date.now()));
+  return L.join('\r\n');
+}
+function downloadReport(e){
+  const blob = new Blob(['\ufeff'+buildReport(e)], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `proceso_autoclave_${fmtFile(e.start)}.txt`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+$('btn-download').addEventListener('click', ()=>{ if(lastEntry) downloadReport(lastEntry); });
+$('hist-body').addEventListener('click', ev=>{
+  const b = ev.target.closest('button[data-id]'); if(!b) return;
+  const e = procHistory.find(h=>String(h.id)===b.dataset.id); if(e) downloadReport(e);
+});
+let clearArmed = false;
+$('btn-clear').addEventListener('click', ()=>{
+  const btn = $('btn-clear');
+  if(!clearArmed){ clearArmed = true; btn.textContent = '¿Confirmar borrado?'; setTimeout(()=>{clearArmed=false; btn.textContent='Borrar historial';}, 3000); return; }
+  clearArmed = false; btn.textContent = 'Borrar historial';
+  procHistory = []; saveHistory(); renderHistory();
+});
+
+$('btn-start').addEventListener('click', runCycle);
+$('btn-reset').addEventListener('click', resetAll);
+
+resetAll();
+renderHistory();
+</script>
+</body>
+</html>
